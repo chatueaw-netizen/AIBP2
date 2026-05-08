@@ -1,0 +1,175 @@
+{
+  "name": "Daily Labor Market News Summary",
+  "flow": [
+    {
+      "id": 1,
+      "module": "builtin:BasicTrigger",
+      "version": 1,
+      "parameters": {
+        "interval": 86400
+      },
+      "mapper": {},
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 300,
+          "name": "Daily Schedule (7 AM)"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false,
+        "useNewZLibDecompression": true
+      },
+      "mapper": {
+        "url": "https://newsapi.org/v2/everything",
+        "method": "get",
+        "headers": [],
+        "qs": [
+          { "key": "q",        "value": "labor market employment jobs workforce" },
+          { "key": "language", "value": "en" },
+          { "key": "sortBy",   "value": "publishedAt" },
+          { "key": "pageSize", "value": "5" },
+          { "key": "from",     "value": "{{formatDate(now; \"YYYY-MM-DD\")}}" },
+          { "key": "apiKey",   "value": "REPLACE_WITH_YOUR_NEWSAPI_KEY" }
+        ],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "timeout": 30
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 300,
+          "name": "Fetch Today's Labor Market Headlines"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "openai:createChatCompletion",
+      "version": 1,
+      "parameters": {
+        "connection": null
+      },
+      "mapper": {
+        "model": "gpt-4o",
+        "temperature": 0.4,
+        "max_tokens": 900,
+        "messages": [
+          {
+            "role": "system",
+            "content": "You are a professional labor market analyst. Review the news data provided and produce a structured daily briefing in EXACTLY this format — no deviations:\n\nDATE: [today's date]\n\nSUMMARY:\n[2-3 sentences covering the most important labor market development today]\n\nKEY HIGHLIGHTS:\n- [Highlight 1]\n- [Highlight 2]\n- [Highlight 3]\n\n3 ACTION ITEMS FOR TODAY:\n1. [Specific actionable step a job seeker or HR professional should take]\n2. [Specific actionable step based on today's trends]\n3. [Specific actionable step based on today's trends]\n\nMARKET SENTIMENT: [Positive / Neutral / Negative] — [one sentence reason]\n\nDo not add any commentary outside this format. Keep bullet points clean and parallel."
+          },
+          {
+            "role": "user",
+            "content": "Today is {{formatDate(now; \"MMMM D, YYYY\")}}.\n\nHere are today's top labor market news articles:\n\n{{2.data}}\n\nProduce today's labor market briefing now."
+          }
+        ]
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 300,
+          "name": "GPT-4o: Analyze & Summarize"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": true,
+        "useNewZLibDecompression": true
+      },
+      "mapper": {
+        "url": "http://REPLACE_WITH_YOUR_SERVER_IP:5000/clean",
+        "method": "post",
+        "headers": [
+          { "name": "Content-Type", "value": "application/json" }
+        ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "body": "{\"text\": {{toJSON(3.choices[1].message.content)}}, \"date\": \"{{formatDate(now; \"YYYY-MM-DD\")}}\"}",
+        "parseResponse": true,
+        "timeout": 15
+      },
+      "metadata": {
+        "designer": {
+          "x": 900,
+          "y": 300,
+          "name": "Claude Code: Clean & Format Text"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "module": "gmail:sendAnEmail",
+      "version": 1,
+      "parameters": {
+        "connection": null
+      },
+      "mapper": {
+        "to": "REPLACE_WITH_RECIPIENT_EMAIL",
+        "subject": "Labor Market Briefing — {{formatDate(now; \"MMMM D, YYYY\")}}",
+        "content": "{{ifempty(4.data.cleaned_text; 3.choices[1].message.content)}}",
+        "contentType": "text",
+        "fromName": "Labor Market Bot",
+        "attachments": []
+      },
+      "metadata": {
+        "designer": {
+          "x": 1200,
+          "y": 300,
+          "name": "Gmail: Send Daily Briefing"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "module": "googledrive:uploadAFile",
+      "version": 3,
+      "parameters": {
+        "connection": null
+      },
+      "mapper": {
+        "folderId": "REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID",
+        "fileName": "Labor-Market-{{formatDate(now; \"YYYY-MM-DD\")}}.txt",
+        "data": "{{ifempty(4.data.cleaned_text; 3.choices[1].message.content)}}",
+        "mimeType": "text/plain",
+        "convert": false
+      },
+      "metadata": {
+        "designer": {
+          "x": 1500,
+          "y": 300,
+          "name": "Google Drive: Archive Briefing"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "instant": false,
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false,
+      "freshVariables": false
+    },
+    "designer": {
+      "orphans": []
+    },
+    "zone": "us1.make.com"
+  }
+}
