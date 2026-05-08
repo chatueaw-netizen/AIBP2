@@ -88,22 +88,24 @@
         "useNewZLibDecompression": true
       },
       "mapper": {
-        "url": "http://REPLACE_WITH_YOUR_SERVER_IP:5000/clean",
+        "url": "https://api.anthropic.com/v1/messages",
         "method": "post",
         "headers": [
-          { "name": "Content-Type", "value": "application/json" }
+          { "name": "x-api-key",          "value": "REPLACE_WITH_YOUR_ANTHROPIC_API_KEY" },
+          { "name": "anthropic-version",   "value": "2023-06-01" },
+          { "name": "content-type",        "value": "application/json" }
         ],
         "bodyType": "raw",
         "contentType": "application/json",
-        "body": "{\"text\": {{toJSON(3.choices[1].message.content)}}, \"date\": \"{{formatDate(now; \"YYYY-MM-DD\")}}\"}",
+        "body": "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":1024,\"messages\":[{\"role\":\"user\",\"content\":\"Clean and format this labor market briefing. Rules: remove duplicate lines, standardize all bullets to dashes (-), collapse extra blank lines, ensure all four sections are present (SUMMARY, KEY HIGHLIGHTS, ACTION ITEMS, MARKET SENTIMENT). Return only the cleaned text, no commentary.\\n\\n{{3.choices[1].message.content}}\"}]}",
         "parseResponse": true,
-        "timeout": 15
+        "timeout": 30
       },
       "metadata": {
         "designer": {
           "x": 900,
           "y": 300,
-          "name": "Claude Code: Clean & Format Text"
+          "name": "Claude API: Clean & Format Text"
         }
       }
     },
@@ -117,7 +119,7 @@
       "mapper": {
         "to": "REPLACE_WITH_RECIPIENT_EMAIL",
         "subject": "Labor Market Briefing — {{formatDate(now; \"MMMM D, YYYY\")}}",
-        "content": "{{ifempty(4.data.cleaned_text; 3.choices[1].message.content)}}",
+        "content": "{{ifempty(4.data.content[1].text; 3.choices[1].message.content)}}",
         "contentType": "text",
         "fromName": "Labor Market Bot",
         "attachments": []
@@ -140,7 +142,7 @@
       "mapper": {
         "folderId": "REPLACE_WITH_YOUR_GOOGLE_DRIVE_FOLDER_ID",
         "fileName": "Labor-Market-{{formatDate(now; \"YYYY-MM-DD\")}}.txt",
-        "data": "{{ifempty(4.data.cleaned_text; 3.choices[1].message.content)}}",
+        "data": "{{ifempty(4.data.content[1].text; 3.choices[1].message.content)}}",
         "mimeType": "text/plain",
         "convert": false
       },
